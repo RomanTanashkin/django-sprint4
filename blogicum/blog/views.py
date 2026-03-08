@@ -1,44 +1,17 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from .forms import CommentForm, PostForm, UserForm
 from .models import Category, Comment, Post
-
-POSTS_PER_PAGE = 10
+from .utils import annotate_comment_count, paginate, published_posts_queryset
 
 User = get_user_model()
 
 
-def _annotate_comment_count(queryset):
-    return queryset.annotate(
-        comment_count=Count('comments')
-    ).order_by('-pub_date')
-
-
-def _published_posts_queryset():
-    return _annotate_comment_count(
-        Post.objects
-        .select_related('category', 'location', 'author')
-        .filter(
-            is_published=True,
-            pub_date__lte=timezone.now(),
-            category__is_published=True,
-        )
-    )
-
-
-def _paginate(request, queryset, per_page=POSTS_PER_PAGE):
-    paginator = Paginator(queryset, per_page)
-    page_number = request.GET.get('page')
-    return paginator.get_page(page_number)
-
-
 def index(request):
-    page_obj = _paginate(request, _published_posts_queryset())
+    page_obj = paginate(request, published_posts_queryset())
     return render(request, 'blog/index.html', {'page_obj': page_obj})
 
 
@@ -48,8 +21,8 @@ def category_posts(request, category_slug):
         slug=category_slug,
         is_published=True,
     )
-    posts = _published_posts_queryset().filter(category=category)
-    page_obj = _paginate(request, posts)
+    posts = published_posts_queryset().filter(category=category)
+    page_obj = paginate(request, posts)
     return render(
         request,
         'blog/category.html',
@@ -61,14 +34,7 @@ def post_detail(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
     if post.author != request.user:
         post = get_object_or_404(
-            _published_posts_queryset().filter(comment_count=None)
-            if False else Post.objects.select_related(
-                'category', 'location', 'author'
-            ).filter(
-                is_published=True,
-                pub_date__lte=timezone.now(),
-                category__is_published=True,
-            ),
+            published_posts_queryset(),
             pk=post_id,
         )
     form = CommentForm()
@@ -83,14 +49,14 @@ def post_detail(request, post_id):
 def profile(request, username):
     user_profile = get_object_or_404(User, username=username)
     if request.user == user_profile:
-        posts = _annotate_comment_count(
+        posts = annotate_comment_count(
             user_profile.posts.select_related(
                 'category', 'location', 'author'
             )
         )
     else:
-        posts = _published_posts_queryset().filter(author=user_profile)
-    page_obj = _paginate(request, posts)
+        posts = published_posts_queryset().filter(author=user_profile)
+    page_obj = paginate(request, posts)
     return render(
         request,
         'blog/profile.html',

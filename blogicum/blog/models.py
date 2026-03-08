@@ -4,6 +4,10 @@ from django.utils.translation import gettext_lazy as _
 
 User = get_user_model()
 
+MAX_LENGTH_TITLE = 256
+MAX_LENGTH_SLUG = 64
+MAX_LENGTH_COMMENT_DISPLAY = 20
+
 
 class PublishedModel(models.Model):
     is_published = models.BooleanField(
@@ -18,11 +22,11 @@ class PublishedModel(models.Model):
 
 
 class Category(PublishedModel):
-    title = models.CharField(_('Заголовок'), max_length=256)
+    title = models.CharField(_('Заголовок'), max_length=MAX_LENGTH_TITLE)
     description = models.TextField(_('Описание'))
     slug = models.SlugField(
         _('Идентификатор'),
-        max_length=64,
+        max_length=MAX_LENGTH_SLUG,
         unique=True,
         help_text=_(
             'Идентификатор страницы для URL; разрешены символы латиницы, '
@@ -33,24 +37,26 @@ class Category(PublishedModel):
     class Meta:
         verbose_name = _('категория')
         verbose_name_plural = _('Категории')
+        ordering = ('title',)
 
     def __str__(self):
         return self.title
 
 
 class Location(PublishedModel):
-    name = models.CharField(_('Название места'), max_length=256)
+    name = models.CharField(_('Название места'), max_length=MAX_LENGTH_TITLE)
 
     class Meta:
         verbose_name = _('местоположение')
         verbose_name_plural = _('Местоположения')
+        ordering = ('name',)
 
     def __str__(self):
         return self.name
 
 
 class Post(PublishedModel):
-    title = models.CharField(_('Заголовок'), max_length=256)
+    title = models.CharField(_('Заголовок'), max_length=MAX_LENGTH_TITLE)
     text = models.TextField(_('Текст'))
     pub_date = models.DateTimeField(
         _('Дата и время публикации'),
@@ -117,4 +123,4 @@ class Comment(models.Model):
         ordering = ('created_at',)
 
     def __str__(self):
-        return self.text[:20]
+        return self.text[:MAX_LENGTH_COMMENT_DISPLAY]
